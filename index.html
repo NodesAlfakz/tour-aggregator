@@ -25,6 +25,174 @@
   </style>
 </head>
 <body>
-  <!-- HTML-контент пропущен для краткости -->
+  <h1>Агрегатор туров</h1>
+  <div class="filters">
+    <select id="countryFilter"><option value="">Все страны</option></select>
+    <input type="number" id="priceFilter" placeholder="Цена до (₸)" min="0" />
+    <select id="ratingFilter">
+      <option value="">Любой рейтинг</option>
+      <option value="5">5★</option>
+      <option value="4">4★ и выше</option>
+      <option value="3">3★ и выше</option>
+    </select>
+  </div>
+  <div class="tour-list" id="tourList"></div>
+  <div class="modal" id="auctionModal">
+    <div class="modal-content">
+      <span class="close" id="closeModal">&times;</span>
+      <h2 id="modalTitle"></h2>
+      <p>Агентство: <span id="modalAgency"></span></p>
+      <p>Текущая ставка: <span id="modalBid"></span> ₸</p>
+      <p>Осталось времени: <span id="modalTimer"></span></p>
+      <button class="btn" id="bidButton">Сделать ставку (+5 000 ₸)</button>
+    </div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const tours = [
+        {
+          title: "Париж весной",
+          agency: "Bonjour Travel",
+          rating: 4.8,
+          country: "Франция",
+          price: 950000,
+          departure: "2025-05-25",
+          description: "5 ночей, завтрак включён",
+          image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80",
+          currentBid: 950000,
+          timeLeft: 600
+        },
+        {
+          title: "Отдых в Анталье",
+          agency: "SunTravel",
+          rating: 4.3,
+          country: "Турция",
+          price: 450000,
+          departure: "2025-06-20",
+          description: "7 ночей, 5* отель, all inclusive",
+          image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80",
+          currentBid: 450000,
+          timeLeft: 600
+        },
+        {
+          title: "Римские каникулы",
+          agency: "ItaliaViva",
+          rating: 4.9,
+          country: "Италия",
+          price: 800000,
+          departure: "2025-07-10",
+          description: "6 ночей, экскурсии включены",
+          image: "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=400&q=80",
+          currentBid: 800000,
+          timeLeft: 600
+        }
+      ];
+
+      const countrySet = new Set(tours.map(t => t.country));
+      const countryFilter = document.getElementById("countryFilter");
+      countrySet.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.textContent = c;
+        countryFilter.appendChild(opt);
+      });
+
+      const priceFilter = document.getElementById("priceFilter");
+      const ratingFilter = document.getElementById("ratingFilter");
+      const tourList = document.getElementById("tourList");
+
+      function renderStars(rating) {
+        const full = Math.floor(rating);
+        const half = rating % 1 >= 0.5 ? 1 : 0;
+        const empty = 5 - full - half;
+        return "★".repeat(full) + (half ? "½" : "") + "☆".repeat(empty);
+      }
+
+      function renderTours() {
+        const country = countryFilter.value;
+        const price = +priceFilter.value || Infinity;
+        const rating = +ratingFilter.value || 0;
+        tourList.innerHTML = "";
+
+        tours.filter(t =>
+          (!country || t.country === country) &&
+          t.price <= price &&
+          t.rating >= rating
+        ).forEach((tour, i) => {
+          const div = document.createElement("div");
+          div.className = "card";
+          div.innerHTML = `
+            <img src="${tour.image}" alt="${tour.title}" />
+            <h3>${tour.title}</h3>
+            <p>${tour.country}, вылет: ${tour.departure}</p>
+            <p><strong>${tour.price.toLocaleString()} ₸</strong></p>
+            <p>Агентство: ${tour.agency}</p>
+            <p class="stars" title="${tour.rating}">${renderStars(tour.rating)} <span style="color:#888;font-size:0.9em;">(${tour.rating})</span></p>
+            <button class="btn" data-index="${i}">Участвовать в аукционе</button>
+          `;
+          tourList.appendChild(div);
+        });
+
+        document.querySelectorAll('.btn[data-index]').forEach(btn => {
+          btn.onclick = function() {
+            openAuction(+btn.getAttribute('data-index'));
+          };
+        });
+      }
+
+      let selectedTour = null;
+      let timerInterval = null;
+
+      function openAuction(index) {
+        selectedTour = tours[index];
+        selectedTour.timeLeft = 600;
+        document.getElementById("modalTitle").textContent = selectedTour.title;
+        document.getElementById("modalAgency").textContent = selectedTour.agency;
+        document.getElementById("modalBid").textContent = selectedTour.currentBid.toLocaleString();
+        document.getElementById("auctionModal").style.display = "flex";
+        updateTimer();
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(updateTimer, 1000);
+      }
+
+      function updateTimer() {
+        if (!selectedTour) return;
+        selectedTour.timeLeft--;
+        const min = Math.floor(selectedTour.timeLeft / 60);
+        const sec = ('0' + (selectedTour.timeLeft % 60)).slice(-2);
+        document.getElementById("modalTimer").textContent = `${min}:${sec}`;
+        if (selectedTour.timeLeft <= 0) {
+          clearInterval(timerInterval);
+          document.getElementById("auctionModal").style.display = "none";
+          selectedTour = null;
+        }
+      }
+
+      document.getElementById("bidButton").onclick = function() {
+        if (!selectedTour) return;
+        selectedTour.currentBid += 5000;
+        document.getElementById("modalBid").textContent = selectedTour.currentBid.toLocaleString();
+      };
+
+      document.getElementById("auctionModal").onclick = function(e) {
+        if (e.target === this) {
+          this.style.display = "none";
+          clearInterval(timerInterval);
+          selectedTour = null;
+        }
+      };
+      document.getElementById("closeModal").onclick = function() {
+        document.getElementById("auctionModal").style.display = "none";
+        clearInterval(timerInterval);
+        selectedTour = null;
+      };
+
+      countryFilter.onchange = renderTours;
+      priceFilter.oninput = renderTours;
+      ratingFilter.onchange = renderTours;
+
+      renderTours();
+    });
+  </script>
 </body>
 </html>
