@@ -1,0 +1,119 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Агрегатор туров (8 предложений, аукцион на понижение)</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f9f9f9; }
+    h1 { text-align: center; }
+    .tour-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+    .card { background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+    .card img { width: 100%; border-radius: 10px; object-fit: cover; height: 180px; }
+    .stars { color: gold; font-size: 1.2em; }
+    .btn { background: #007bff; color: #fff; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
+    .btn-installment { background: #28a745; color: #fff; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: #fff; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; text-align: center; position: relative; }
+    .close { position: absolute; right: 15px; top: 10px; font-size: 1.5em; cursor: pointer; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>Агрегатор туров (8 предложений)</h1>
+  <div class="tour-list" id="tourList"></div>
+
+  <div class="modal" id="auctionModal">
+    <div class="modal-content">
+      <span class="close" id="closeModal">&times;</span>
+      <h2 id="modalTitle"></h2>
+      <p>Агентство: <span id="modalAgency"></span></p>
+      <p>Текущая минимальная цена: <span id="modalBid"></span> ₸</p>
+      <p>Минимально возможная цена: <span id="modalMinBid"></span> ₸</p>
+      <p>Осталось времени: <span id="modalTimer"></span></p>
+      <button class="btn" id="bidButton">Снизить цену (-5 000 ₸)</button>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const tours = [{"title": "Париж весной", "agency": "Bonjour Travel", "rating": 4.8, "country": "Франция", "price": 950000, "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80"}, {"title": "Анталья — море и солнце", "agency": "SunTravel", "rating": 4.3, "country": "Турция", "price": 450000, "image": "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80"}, {"title": "Римские каникулы", "agency": "ItaliaViva", "rating": 4.9, "country": "Италия", "price": 800000, "image": "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=400&q=80"}, {"title": "Лето в Барселоне", "agency": "EspañaTour", "rating": 4.6, "country": "Испания", "price": 720000, "image": "https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?auto=format&fit=crop&w=400&q=80"}, {"title": "Магия Бали", "agency": "IslandTrips", "rating": 4.7, "country": "Индонезия", "price": 1300000, "image": "https://images.unsplash.com/photo-1506748686214-e9df14d4d9d0?auto=format&fit=crop&w=400&q=80"}, {"title": "Путешествие в Токио", "agency": "AsiaFly", "rating": 4.5, "country": "Япония", "price": 1150000, "image": "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=400&q=80"}, {"title": "Озёра Швейцарии", "agency": "AlpsView", "rating": 4.9, "country": "Швейцария", "price": 1450000, "image": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=400&q=80"}, {"title": "Каникулы в Дубае", "agency": "UAE Holidays", "rating": 4.4, "country": "ОАЭ", "price": 980000, "image": "https://images.unsplash.com/photo-1606112219348-204d7d8b94ee?auto=format&fit=crop&w=400&q=80"}];
+      const tourList = document.getElementById("tourList");
+      let selectedTour = null;
+      let timer = null;
+      const auctionTime = 300;
+      const bidStep = 5000;
+
+      function renderTours() {
+        tourList.innerHTML = "";
+        tours.forEach((tour, i) => {
+          const div = document.createElement("div");
+          div.className = "card";
+          div.innerHTML = `
+            <img src="${tour.image}" />
+            <h3>${tour.title}</h3>
+            <p><strong>${tour.price.toLocaleString()} ₸</strong></p>
+            <p class="stars">★★★★★</p>
+            <button class="btn" onclick="openAuction(${i})">Аукцион: получить скидку</button>
+            <button class="btn btn-installment" onclick="console.log('Рассрочка на тур: ${tour.title}')">Купить в рассрочку 0-0-12 через BCC Smart</button>
+          `;
+          tourList.appendChild(div);
+        });
+      }
+
+      window.openAuction = function (index) {
+        selectedTour = { ...tours[index] };
+        selectedTour.currentBid = selectedTour.price;
+        selectedTour.minBid = selectedTour.price * 0.9;
+        selectedTour.timeLeft = auctionTime;
+
+        document.getElementById("modalTitle").textContent = selectedTour.title;
+        document.getElementById("modalAgency").textContent = selectedTour.agency;
+        document.getElementById("modalBid").textContent = selectedTour.currentBid.toLocaleString();
+        document.getElementById("modalMinBid").textContent = Math.floor(selectedTour.minBid).toLocaleString();
+        document.getElementById("auctionModal").style.display = "flex";
+
+        if (timer) clearInterval(timer);
+        timer = setInterval(updateTimer, 1000);
+      };
+
+      function updateTimer() {
+        if (!selectedTour) return;
+        selectedTour.timeLeft--;
+        document.getElementById("modalTimer").textContent = Math.floor(selectedTour.timeLeft / 60) + ":" + String(selectedTour.timeLeft % 60).padStart(2, '0');
+        if (selectedTour.timeLeft <= 0) {
+          clearInterval(timer);
+          alert("Аукцион завершён! Вы получите тур за " + selectedTour.currentBid.toLocaleString() + " ₸");
+          document.getElementById("auctionModal").style.display = "none";
+          selectedTour = null;
+        }
+      }
+
+      document.getElementById("bidButton").onclick = function () {
+        if (!selectedTour) return;
+        const newBid = selectedTour.currentBid - bidStep;
+        if (newBid >= selectedTour.minBid) {
+          selectedTour.currentBid = newBid;
+          document.getElementById("modalBid").textContent = selectedTour.currentBid.toLocaleString();
+        } else {
+          alert("Цена достигла минимального порога.");
+        }
+      };
+
+      document.getElementById("auctionModal").onclick = function (e) {
+        if (e.target === this) {
+          clearInterval(timer);
+          document.getElementById("auctionModal").style.display = "none";
+        }
+      };
+
+      document.getElementById("closeModal").onclick = function () {
+        clearInterval(timer);
+        document.getElementById("auctionModal").style.display = "none";
+      };
+
+      renderTours();
+    });
+  </script>
+</body>
+</html>
