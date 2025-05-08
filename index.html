@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -13,8 +14,10 @@
     .card { background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
     .card img { width: 100%; border-radius: 10px; object-fit: cover; height: 180px; }
     .stars { color: gold; font-size: 1.2em; }
-    .btn { background: #007bff; color: #fff; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin-top: auto; }
+    .btn { background: #007bff; color: #fff; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
     .btn:active { background: #0056b3; }
+    .btn-installment { background: #28a745; color: #fff; }
+    .btn-installment:active { background: #1e7e34; }
     .modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
     .modal-content { background: #fff; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; text-align: center; position: relative; }
     .close { position: absolute; right: 15px; top: 10px; font-size: 1.5em; cursor: pointer; color: #888; }
@@ -73,23 +76,15 @@
           image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80",
           currentBid: 450000,
           timeLeft: 600
-        },
-        {
-          title: "Римские каникулы",
-          agency: "ItaliaViva",
-          rating: 4.9,
-          country: "Италия",
-          price: 800000,
-          departure: "2025-07-10",
-          description: "6 ночей, экскурсии включены",
-          image: "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=400&q=80",
-          currentBid: 800000,
-          timeLeft: 600
         }
       ];
 
-      const countrySet = new Set(tours.map(t => t.country));
       const countryFilter = document.getElementById("countryFilter");
+      const priceFilter = document.getElementById("priceFilter");
+      const ratingFilter = document.getElementById("ratingFilter");
+      const tourList = document.getElementById("tourList");
+
+      const countrySet = new Set(tours.map(t => t.country));
       countrySet.forEach(c => {
         const opt = document.createElement("option");
         opt.value = c;
@@ -97,15 +92,8 @@
         countryFilter.appendChild(opt);
       });
 
-      const priceFilter = document.getElementById("priceFilter");
-      const ratingFilter = document.getElementById("ratingFilter");
-      const tourList = document.getElementById("tourList");
-
       function renderStars(rating) {
-        const full = Math.floor(rating);
-        const half = rating % 1 >= 0.5 ? 1 : 0;
-        const empty = 5 - full - half;
-        return "★".repeat(full) + (half ? "½" : "") + "☆".repeat(empty);
+        return "★".repeat(Math.floor(rating)) + "☆".repeat(5 - Math.floor(rating));
       }
 
       function renderTours() {
@@ -127,65 +115,13 @@
             <p>${tour.country}, вылет: ${tour.departure}</p>
             <p><strong>${tour.price.toLocaleString()} ₸</strong></p>
             <p>Агентство: ${tour.agency}</p>
-            <p class="stars" title="${tour.rating}">${renderStars(tour.rating)} <span style="color:#888;font-size:0.9em;">(${tour.rating})</span></p>
-            <button class="btn" data-index="${i}">Участвовать в аукционе</button>
+            <p class="stars">${renderStars(tour.rating)} <span style="color:#888;font-size:0.9em;">(${tour.rating})</span></p>
+            <button class="btn" onclick="openAuction(${i})">Участвовать в аукционе</button>
+            <button class="btn btn-installment" onclick="console.log('Купить в рассрочку:', '${tour.title}')">Купить в рассрочку 0-0-12 через BCC Smart</button>
           `;
           tourList.appendChild(div);
         });
-
-        document.querySelectorAll('.btn[data-index]').forEach(btn => {
-          btn.onclick = function() {
-            openAuction(+btn.getAttribute('data-index'));
-          };
-        });
       }
-
-      let selectedTour = null;
-      let timerInterval = null;
-
-      function openAuction(index) {
-        selectedTour = tours[index];
-        selectedTour.timeLeft = 600;
-        document.getElementById("modalTitle").textContent = selectedTour.title;
-        document.getElementById("modalAgency").textContent = selectedTour.agency;
-        document.getElementById("modalBid").textContent = selectedTour.currentBid.toLocaleString();
-        document.getElementById("auctionModal").style.display = "flex";
-        updateTimer();
-        if (timerInterval) clearInterval(timerInterval);
-        timerInterval = setInterval(updateTimer, 1000);
-      }
-
-      function updateTimer() {
-        if (!selectedTour) return;
-        selectedTour.timeLeft--;
-        const min = Math.floor(selectedTour.timeLeft / 60);
-        const sec = ('0' + (selectedTour.timeLeft % 60)).slice(-2);
-        document.getElementById("modalTimer").textContent = `${min}:${sec}`;
-        if (selectedTour.timeLeft <= 0) {
-          clearInterval(timerInterval);
-          document.getElementById("auctionModal").style.display = "none";
-          selectedTour = null;
-        }
-      }
-
-      document.getElementById("bidButton").onclick = function() {
-        if (!selectedTour) return;
-        selectedTour.currentBid += 5000;
-        document.getElementById("modalBid").textContent = selectedTour.currentBid.toLocaleString();
-      };
-
-      document.getElementById("auctionModal").onclick = function(e) {
-        if (e.target === this) {
-          this.style.display = "none";
-          clearInterval(timerInterval);
-          selectedTour = null;
-        }
-      };
-      document.getElementById("closeModal").onclick = function() {
-        document.getElementById("auctionModal").style.display = "none";
-        clearInterval(timerInterval);
-        selectedTour = null;
-      };
 
       countryFilter.onchange = renderTours;
       priceFilter.oninput = renderTours;
